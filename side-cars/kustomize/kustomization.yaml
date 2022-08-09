@@ -1,0 +1,34 @@
+resources:
+  - all.yaml
+  - secret.yaml
+patches:
+  - path: sidecar-wiremock.yaml
+    target:
+      kind: Deployment
+      annotationSelector: "tests/injectWiremockSideCar=true"
+      name: ".*"
+
+  - path: sidecar-mongodb.yaml
+    target:
+      kind: Deployment
+      annotationSelector: "tests/injectMongoDBSideCar=true"
+      name: ".*"
+
+  - path: sidecar-kafka.yaml
+    target:
+      kind: Deployment
+      annotationSelector: "tests/injectKafkaSideCar=true"
+      name: ".*"
+
+  - path: sidecar-mysql.yaml
+    target:
+      kind: Deployment
+      annotationSelector: "tests/injectMySqlSideCar=true"
+      name: ".*"
+
+  - path: sidecar-postgresql.yaml
+    target:
+      kind: Deployment
+      annotationSelector: "tests/injectPostgresqlSideCar=true"
+      name: ".*"
+
