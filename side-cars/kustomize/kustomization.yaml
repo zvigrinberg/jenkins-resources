@@ -1,6 +1,8 @@
 resources:
-  - all.yaml
-  - secret.yaml
+        #  - all.yaml
+  - rbac.yaml
+  - deployment.yaml
+    
 patches:
   - path: sidecar-wiremock.yaml
     target:
@@ -8,27 +10,44 @@ patches:
       annotationSelector: "tests/injectWiremockSideCar=true"
       name: ".*"
 
-  - path: sidecar-mongodb.yaml
-    target:
-      kind: Deployment
-      annotationSelector: "tests/injectMongoDBSideCar=true"
-      name: ".*"
-
+#  - path: sidecar-mongodb.yaml
+#    target:
+#      kind: Deployment
+#      annotationSelector: "tests/injectMongoDBSideCar=true"
+#      name: ".*"
+#
   - path: sidecar-kafka.yaml
     target:
       kind: Deployment
       annotationSelector: "tests/injectKafkaSideCar=true"
       name: ".*"
 
-  - path: sidecar-mysql.yaml
+  - patch: |-
+       apiVersion: apps/v1
+       kind: Deployment
+       metadata:
+         name: doesNotMatter
+       spec:
+         template:
+           spec:
+             securityContext:
+               runAsUser: 0
+             serviceAccountName: app-tester
     target:
       kind: Deployment
-      annotationSelector: "tests/injectMySqlSideCar=true"
       name: ".*"
 
-  - path: sidecar-postgresql.yaml
-    target:
-      kind: Deployment
-      annotationSelector: "tests/injectPostgresqlSideCar=true"
-      name: ".*"
+
+#
+#  - path: sidecar-mysql.yaml
+#    target:
+#      kind: Deployment
+#      annotationSelector: "tests/injectMySqlSideCar=true"
+#      name: ".*"
+#
+#  - path: sidecar-postgresql.yaml
+#    target:
+#      kind: Deployment
+#      annotationSelector: "tests/injectPostgresqlSideCar=true"
+#      name: ".*"
 

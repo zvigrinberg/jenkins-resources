@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: app
+  name: app
+  annotations:
+    tests/injectWiremockSideCar: "true"
+    tests/injectKafkaSideCar: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: app
+    spec:
+      containers:
+      - image: ubi8/ubi:8.5-226
+        name: ubi
+        command: ["bash", "-c" , "sleep infinity" ]

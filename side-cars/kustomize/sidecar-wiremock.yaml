@@ -6,6 +6,8 @@ spec:
   template:
     spec:
       containers:
-        - name: my-security-container
-          image: "security-image:unintelligible-hash"
-
+        - name: wiremock-server
+          image: "wiremock/wiremock"
+          command: [ "bash" , "-c" ,"java -jar /var/wiremock/lib/wiremock-jre8-standalone.jar --port 9999"]
+          ports:
+            - containerPort: 9999
