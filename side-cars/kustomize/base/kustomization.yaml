@@ -1,6 +1,5 @@
 resources:
-        #  - all.yaml
-  - rbac.yaml
+#  - all.yaml
   - deployment.yaml
     
 patches:
