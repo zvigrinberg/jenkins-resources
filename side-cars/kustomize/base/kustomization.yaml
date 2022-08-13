@@ -21,21 +21,6 @@ patches:
       annotationSelector: "tests/injectKafkaSideCar=true"
       name: ".*"
 
-  - patch: |-
-       apiVersion: apps/v1
-       kind: Deployment
-       metadata:
-         name: doesNotMatter
-       spec:
-         template:
-           spec:
-             securityContext:
-               runAsUser: 0
-             serviceAccountName: app-tester
-    target:
-      kind: Deployment
-      name: ".*"
-
 
 #
 #  - path: sidecar-mysql.yaml
