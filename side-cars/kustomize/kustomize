@@ -1,0 +1,5 @@
+#!/bin/bash
+
+cat <&0 >  ./side-cars/kustomize/base/manifests.yaml
+
+kustomize build ./side-cars/kustomize/k8/ && rm ./side-cars/kustomize/base/manifests.yaml
