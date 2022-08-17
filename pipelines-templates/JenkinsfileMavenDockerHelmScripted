@@ -1,0 +1,179 @@
+
+@Library('shared-jenkins-library') _
+node('jenkins-agent-helm') {
+
+
+    echo "Start of CI Helm chart pipeline!!"
+
+    def gitBranch = "${env.BRANCH_NAME}"
+    def buildNumber = "${env.BUILD_NUMBER}"
+    def cdRepo  = "${params.GITOPS_CD_REPO}" //git@github.com:zvigrinberg/gitops-cd-pipeline.git
+    def registryProtocol = "oci"
+    def registryServer = "quay.io"
+    def registryAccount = "zgrinberg"
+    def registryServerUrl = "${registryProtocol}://${registryServer}/${registryAccount}"
+    def packageChartVersion
+    def packedChartFileFinal
+    def clusterAddress
+
+    def final mainBranch = "main"
+    echo "git branch: ${gitBranch}"
+    withCredentials([string(credentialsId: 'jenkins-token-for-helm', variable: 'ocpToken'),
+                     file(credentialsId : 'openshift-ca' , variable: 'caLocation') ]) {
+        stage('Init workspace')
+                {
+                    //set the pipeline terminal with essential ENV Variable for working in helm with container registry
+                    sh(script: "export HELM_EXPERIMENTAL_OCI=1", returnStdout: true).trim()
+
+                }
+
+        stage('Git Checkout Branch')
+                {
+                    checkout scm
+                }
+
+        stage('Run Unit-test')
+                {
+
+                }
+
+        stage('Build Application')
+                {
+
+                }
+
+        stage('Build Application Image')
+                {
+
+                }
+
+        stage('Authenticate to Image Registry')
+                {
+
+                }
+
+        stage('push image to Registry')
+                {
+
+                }
+
+
+        //feature/topic branch, needs only to validate parameters, test chart(linting and helm template) , perform a dry-run install
+        //and open a pull-request to main branch
+        stage('Packing the Chart') {
+            def yaml = readYaml file: 'infinity-ms/Chart.yaml'
+            def chartVersion = yaml.version
+            def chartName = yaml.name
+            packageChartVersion = "${chartVersion}-${buildNumber}"
+            packedChartFileFinal = "${chartName}-${packageChartVersion}.tgz"
+
+            def output = sh(script: "helm dependency update infinity-ms/ ", returnStdout: true).trim()
+            def output2 = sh(script: "helm package infinity-ms/ --version ${packageChartVersion} ", returnStdout: true).trim()
+
+        }
+
+
+        stage('Authenticate to Helm Registry')
+                {
+                    withCredentials([usernamePassword(credentialsId: 'quay-io-registry-credentials', usernameVariable: 'USER', passwordVariable: 'PASSWORD')]) {
+                        loginToRegistry(registryServer, (String)USER, (String)PASSWORD)
+                    }
+                }
+        stage('Push the chart to Registry') {
+            def output = sh(script: "helm push ${packedChartFileFinal} ${registryServerUrl} ; cd ..", returnStdout: true).trim()
+        }
+
+        //Deploy to cluster in a temporary namespace with CI values.yaml,  appropriate for integration testing
+        stage('Deploy Application to OCP Cluster' )
+                {
+
+                    //      loginToOCPCluster((String) clusterAddress, (String) ocpToken, (String) caLocation)
+                    //def output = sh(script: "cd infinity-ms ; helm install . infinity-ms-test -f values-ci.yaml ; cd ..", returnStdout: true).trim()
+                    sh(script: "sleep 10", returnStdout: true).trim()
+                }
+
+        //Here is the place to implement integration test, using helm test command, or with any other testing framework or tool, like JUnit, cucumber testing, and etc.
+        //Preferably to be used with conjunction of build tools like maven/gradle.
+        stage('Test Deployment- Integration Test')
+                {
+                    def output =sh(script: "sleep 5", returnStdout: true).trim()
+                    //def output = sh(script: "oc new-project infinity-ms-test-${buildNumber}", returnStdout: true).trim()
+                    //def output2 = sh(script: "helm test infinity-ms-test", returnStdout: true).trim()
+                }
+
+        stage('Static Code Analysis with SonarQube')
+                {
+
+                }
+
+        stage('Security Image scan With StackRox')
+
+        stage('Trigger CD request in DEV environment')
+                {
+                    withCredentials([sshUserPrivateKey(credentialsId: 'git-user-and-ssh' , keyFileVariable: 'SSH_KEY')]) {
+                        withEnv(["GIT_SSH_COMMAND=ssh -o StrictHostKeyChecking=no -i ${SSH_KEY}"]) {
+                            //git@github.com:zvigrinberg/gitops-cd-pipeline.git
+                            String output = sh(script: "git clone ${cdRepo}", returnStdout: true).trim()
+                            String[] matches = cdRepo.toString().split("/")
+                            def cdRepoName = matches[1]
+                            int gitSuffixPos = cdRepoName.toString().indexOf(".git")
+                            String directoryName = cdRepoName.toString().substring(0, gitSuffixPos)
+                            String output2 = sh(script: "cd ${directoryName} ; git checkout feature/validations ; cd ..", returnStdout: true).trim()
+                            def ciYaml = readYaml file: "infinity-ms/values-ci.yaml"
+                            def cdYaml = readYaml file: "${directoryName}/infinity-ms/values.yaml"
+                            def chartsYaml = readYaml file: "${directoryName}/Charts.yaml"
+                            ciYaml.each { group ->
+                                echo group.toString()
+                                int pos = group.toString().indexOf("=")
+                                def msName = group.toString().substring(0, pos)
+                                echo "msName = ${msName}"
+                                String imageValue
+                                try {
+                                    imageValue = ciYaml[msName.toString()].image.tag.toString()
+                                    cdYaml[msName.toString()].image.tag = imageValue
+                                }
+                                catch (Exception e) {
+                                    echo e.toString()
+                                }
+                            }
+                            //write values.yaml with updated images values
+                            //write chart version and repo to Charts.yaml
+                            String output3 = sh(script: "rm ${directoryName}/infinity-ms/values.yaml", returnStdout: true).trim()
+                            writeYaml file: "${directoryName}/infinity-ms/values.yaml", data: cdYaml
+                            registryServerStripped = registryServerUrl.toString().substring(6)
+                            def repoToWrite = "${registryServerStripped}/infinity-ms"
+                            def versionToWrite = packageChartVersion.toString()
+                            chartsYaml.charts[0].repo = repoToWrite
+                            chartsYaml.charts[0].version = versionToWrite
+                            //If request to CD is coming from CI, then the strategy is always INSTALL.
+                            chartsYaml.charts[0].strategy = "INSTALL"
+                            String output4 = sh(script: "rm ${directoryName}/Charts.yaml", returnStdout: true).trim()
+                            writeYaml file: "${directoryName}/Charts.yaml", data: chartsYaml
+                            def gitConfig = sh(script: "git config --global user.email \" ci-infinity@jenkins.ocp\"" , returnStdout: true).trim()
+                            def gitConfig2 = sh(script: "git config --global user.name \"Infinity-CI Process\"\n" , returnStdout: true).trim()
+                            String output5 = sh(script: "cd ${directoryName} ; git add . ; git commit -m \"CI Passed successfully\" ; git push ; cd ..", returnStdout: true).trim()
+
+                        }
+                    }
+                }
+    }
+    stage('Clean Workspace')
+            {
+                //def output =sh(script: "helm uninstall infinity-ms-test", returnStdout: true).trim()
+                //def output2 =sh(script: "oc delete project infinity-ms-test-${buildNumber} ", returnStdout: true).trim()
+                cleanWs()
+            }
+}
+
+private void loginToOCPCluster(String clusterAddress,String ocpToken,String caLocation) {
+    stage('Authenticate to Openshift Cluster') {
+        def result = sh(script: "oc login --token ${ocpToken} --server=${clusterAddress} --certificate-authority=${caLocation}", returnStdout: true).trim()
+        echo "Response from connecting to openshift cluster : \n ${result}"
+    }
+}
+
+private void loginToRegistry(String server, String user, String password) {
+    def result = sh(script: "helm registry login ${server} -u ${user} -p ${password} ", returnStdout: true).trim()
+    echo "Response from connecting to helm OCI registry : \n ${result}"
+
+}
