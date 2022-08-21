@@ -6,6 +6,6 @@ if [ "$(command -v kustomize)" ]; then
     kustomize build ./side-cars/kustomize/openshift/
 
 else
-    oc kustomize ./side-cars/kustomize/openshift/k
+    oc kustomize ./side-cars/kustomize/openshift/
 fi
 
