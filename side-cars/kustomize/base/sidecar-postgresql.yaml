@@ -13,4 +13,10 @@ spec:
           env:
             - name: POSTGRES_PASSWORD
               value: mysecretpassword
+            - name: APP_DATABASE_NAME
+              valueFrom:
+                fieldRef: metadata.annotations.postgresqlSideCarDB
+
+
+
 

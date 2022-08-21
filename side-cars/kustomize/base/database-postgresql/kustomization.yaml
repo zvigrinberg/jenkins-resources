@@ -1,0 +1,6 @@
+configMapGenerator:
+- name: database-init
+  files:
+  - init-orders.sh
+  options:
+    disableNameSuffixHash: true
