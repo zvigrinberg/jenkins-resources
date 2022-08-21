@@ -1,6 +1,6 @@
 resources:
   - manifests.yaml
-  - deployment.yaml
+#  - deployment.yaml
     
 patches:
   - path: sidecar-wiremock.yaml
