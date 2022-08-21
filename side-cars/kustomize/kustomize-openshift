@@ -2,4 +2,10 @@
 
 cat <&0 >  ./side-cars/kustomize/base/manifests.yaml
 
-kustomize build ./side-cars/kustomize/openshift/ && rm ./side-cars/kustomize/base/manifests.yaml
+if [ "$(command -v kustomize)" ]; then
+    kustomize build ./side-cars/kustomize/openshift/
+
+else
+    oc kustomize ./side-cars/kustomize/openshift/k
+fi
+

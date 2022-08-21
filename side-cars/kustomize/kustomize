@@ -2,4 +2,11 @@
 
 cat <&0 >  ./side-cars/kustomize/base/manifests.yaml
 
-kustomize build ./side-cars/kustomize/k8/ && rm ./side-cars/kustomize/base/manifests.yaml
+if [ "$(command -v kustomize)" ]; then
+    kustomize build ./side-cars/kustomize/k8/
+
+else
+    kubectl kustomize ./side-cars/kustomize/k8/
+fi
+
+./side-cars/kustomize/base/manifests.yaml
