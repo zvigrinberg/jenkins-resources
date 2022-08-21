@@ -29,9 +29,9 @@ patches:
 #      annotationSelector: "tests/injectMySqlSideCar=true"
 #      name: ".*"
 #
-#  - path: sidecar-postgresql.yaml
-#    target:
-#      kind: Deployment
-#      annotationSelector: "tests/injectPostgresqlSideCar=true"
-#      name: ".*"
+  - path: sidecar-postgresql.yaml
+    target:
+      kind: Deployment
+      annotationSelector: "tests/injectPostgresqlSideCar=true"
+      name: ".*"
 
