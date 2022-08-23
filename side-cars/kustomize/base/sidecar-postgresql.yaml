@@ -7,22 +7,31 @@ spec:
     spec:
       containers:
         - name: postgresql
-          image: "postgres:latest"
+          image: "quay.io/zgrinber/postgres:latest"
           ports:
             - containerPort: 5432
           env:
             - name: POSTGRES_PASSWORD
               value: mysecretpassword
-            - name: APP_DATABASE_NAME
-              valueFrom:
-                fieldRef: metadata.annotations.postgresqlSideCarDB
-
+#          command:
+#            - sleep
+#            - infinity
           volumeMounts:
-            - mountPath: /docker-entrypoint-initdb.d/
-              subPath: init-db.sh
+            - mountPath: /docker-entrypoint-initdb.d
+#              subPath:
               name: db-init
+
+            - mountPath: /tmp
+              name: annotations
       volumes:
         - name: db-init
           configMap:
             name: database-init
+            defaultMode: 0777
+        - name: annotations
+          downwardAPI:
+            items:
+              - path: "annotations"
+                fieldRef:
+                  fieldPath: metadata.annotations
             defaultMode: 0777

@@ -7,6 +7,8 @@ metadata:
   annotations:
     tests/injectWiremockSideCar: "true"
     tests/injectKafkaSideCar: "true"
+    tests/injectPostgresqlSideCar: "true"
+    postgresqlSideCarDB: "orders"
 spec:
   replicas: 1
   selector:
@@ -17,6 +19,12 @@ spec:
     metadata:
       labels:
         app: app
+      annotations:
+        tests/injectWiremockSideCar: "true"
+        tests/injectKafkaSideCar: "true"
+        tests/injectPostgresqlSideCar: "true"
+        postgresqlSideCarDB: orders
+
     spec:
       containers:
       - image: ubi8/ubi:8.5-226

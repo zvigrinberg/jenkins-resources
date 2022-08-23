@@ -7,6 +7,6 @@ spec:
     spec:
       containers:
         - name: kafka
-          image: "bashj79/kafka-kraft"
+          image: "quay.io/zgrinber/kafka-kraft:latest"
           ports:
             - containerPort: 9092

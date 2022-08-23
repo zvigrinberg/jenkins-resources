@@ -7,7 +7,7 @@ spec:
     spec:
       containers:
         - name: wiremock-server
-          image: "wiremock/wiremock"
+          image: "quay.io/zgrinber/wiremock:latest"
           command: [ "bash" , "-c" ,"java -jar /var/wiremock/lib/wiremock-jre8-standalone.jar --port 9999"]
           ports:
             - containerPort: 9999

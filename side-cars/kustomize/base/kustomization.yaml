@@ -1,6 +1,7 @@
 resources:
   - manifests.yaml
 #  - deployment.yaml
+  - database-postgresql/
     
 patches:
   - path: sidecar-wiremock.yaml
