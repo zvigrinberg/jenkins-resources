@@ -17,6 +17,12 @@ spec:
               valueFrom:
                 fieldRef: metadata.annotations.postgresqlSideCarDB
 
-
-
-
+          volumeMounts:
+            - mountPath: /docker-entrypoint-initdb.d/
+              subPath: init-db.sh
+              name: db-init
+      volumes:
+        - name: db-init
+          configMap:
+            name: database-init
+            defaultMode: 0777

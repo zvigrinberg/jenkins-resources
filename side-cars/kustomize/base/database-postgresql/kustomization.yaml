@@ -1,6 +1,6 @@
 configMapGenerator:
 - name: database-init
   files:
-  - init-orders.sh
+  - init-db.sh
   options:
     disableNameSuffixHash: true
