@@ -4,6 +4,10 @@ resources:
   - database-postgresql/
     
 patches:
+  - path: pull-secret.yaml
+    target:
+      kind: Deployment
+      name: ".*"
   - path: sidecar-wiremock.yaml
     target:
       kind: Deployment
