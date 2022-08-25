@@ -2,6 +2,7 @@ resources:
   - manifests.yaml
 #  - deployment.yaml
   - database-postgresql/
+
     
 patches:
   - path: pull-secret.yaml
@@ -12,6 +13,21 @@ patches:
     target:
       kind: Deployment
       annotationSelector: "tests/injectWiremockSideCar=true"
+      name: ".*"
+
+  - patch: |-
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: doesNotMatter
+      spec:
+        ports:
+          - name: wiremock
+            protocol: TCP
+            port: 9999
+            targetPort: 9999
+    target:
+      kind: Service
       name: ".*"
 
 #  - path: sidecar-mongodb.yaml
@@ -25,7 +41,6 @@ patches:
       kind: Deployment
       annotationSelector: "tests/injectKafkaSideCar=true"
       name: ".*"
-
 
 
 #
