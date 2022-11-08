@@ -1,0 +1,45 @@
+pipeline{
+    agent any
+    stages{
+        stage("test"){
+            steps{
+                echo pwd
+                sh "ls -la"
+                // if dir1 exists already want to remove it forst or else later mkdir will error out; if dir1 does not exist, dir("dir1") does not throw error (ids supposed to create the folder)
+                dir ("dir1"){
+                    echo pwd
+                    sh "mkdir dirInner"
+                    sh "pwd; ls -la"
+                    deleteDir()
+                }
+                echo pwd
+                sh "ls -la"
+                sh "mkdir dir1"
+                echo pwd
+                //create file with content
+                sh '''
+                    cat > myyaml.yaml << EOF
+                    replicaCount: 1
+
+                    image:
+                      repository: nginx
+                      pullPolicy: IfNotPresent
+                      # Overrides the image tag whose default is the chart appVersion.
+                      tag: "latest"
+EOF
+                 '''
+                sh "ls -la"
+                sh "cat myyaml.yaml"
+                // read the file content
+                script{
+                    def datas = readYaml file: 'myyaml.yaml'
+                    assert datas.replicaCount == 1
+                    assert datas.image.repository == "nginx"
+                    assert datas.image.pullPolicy != "ALways"
+                    assert datas.image.tag == "latest"
+                }
+                // update the file content - can just overwrite?
+            }
+        }
+    }
+}

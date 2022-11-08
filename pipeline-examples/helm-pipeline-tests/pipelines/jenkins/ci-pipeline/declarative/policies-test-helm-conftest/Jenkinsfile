@@ -1,0 +1,160 @@
+// global variables
+def chartName = ""
+def packedChartFileFinal = ""
+// parameters from pipeline job
+def policyErrorIsShowstopper = "${params.policyErrorIsShowstopper}"
+def registryProtocol = "oci"
+def registryServer = 'quay.io'
+def registryAccount = "zgrinber"
+def registryServerUrl = "${registryProtocol}://${registryServer}/${registryAccount}"
+
+pipeline{
+// "agent any" good enough for openshift plugin, if running jenkins installed from OCP
+// for more capabilities like helm/open policy cli need to make own agent with those added in
+//     agent any
+    agent {
+        //need to have a pod template defined for this jenkins agent image (custom built)
+        label "jenkins-agent-helm"
+    }
+    environment{
+        OCP_SERVER = ""
+        // configured under
+        OCP_CREDENTIALS = "OCP_Credentials_Id"
+        OCP_PROJECT = "jenkins-conftest"
+    }
+    stages{
+        stage("checkout chart code from Github"){
+            steps{
+//             ‘checkout scm’ is only available when using “Multibranch Pipeline” or “Pipeline script from SCM”
+                checkout([$class: 'GitSCM', branches: [[name: '*/main']], extensions: [],
+                    userRemoteConfigs: [[credentialsId: 'git-cred', url: ' git@github.com:zvigrinberg/jenkins-resources.git']]])
+            }
+        }
+        // location of workspace when using agent 'any': /var/lib/jenkins/jobs/<project>/workspace on jenkins installation
+        // location of workspace when using agent 'jenkins-agent-helm': /tmp/workspace/<project> on temp pod
+        stage("pack chart"){
+            steps{
+                echo "prepare unique chart name by adding build number to chart version and package chart"
+                dir("firstapp") {
+                    script{
+                        def yaml = readYaml file: 'pipeline-examples/helm-pipeline-tests/firstapp/Chart.yaml'
+                        def chartVersion = yaml.version
+                        chartName = yaml.name
+                        def packageChartVersion = "${chartVersion}-${env.BUILD_NUMBER}"
+                        packedChartFileFinal = "${chartName}-${packageChartVersion}.tgz"
+                        sh "helm dependency update pipeline-examples/helm-pipeline-tests/firstapp"
+                        sh "helm package pipeline-examples/helm-pipeline-tests/firstapp --version ${packageChartVersion}"
+                    }
+                }
+            }
+        }
+        stage("lint chart"){
+            steps{
+                dir("pipeline-examples/helm-pipeline-tests/firstapp") {
+                    sh "helm lint ${packedChartFileFinal}"
+                }
+            }
+        }
+        stage("dry-run chart"){
+            steps{
+                dir("pipeline-examples/helm-pipeline-tests/firstapp") {
+                    script{
+                        def templateResult = sh(script: "helm template ${chartName} ${packedChartFileFinal} -f values.yaml", returnStdout: true).trim()
+                        echo "Result of client dry-run: \n ${templateResult}"
+                    }
+                }
+            }
+        }
+        stage("policy-test chart"){
+            steps{
+                dir("pipeline-examples/helm-pipeline-tests/firstapp") {
+                    script{
+                        if("${policyErrorIsShowstopper}"){
+                            policiesTest("${chartName}", "${packedChartFileFinal}")
+                        }
+                        else{
+                            catchError{
+                                policiesTest("${chartName}", "${packedChartFileFinal}")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        stage("authenticate to chart registry"){
+            environment{
+                // define credentials as global usernamePassword credentials
+                QUAY_CREDS = credentials("quay_usernamePassword")
+                // redefine any script variables as environment variables so that they can be used inside the single quoted script string
+                REGISTRY_SERVER_ENV_VAR = "${registryServer}"
+            }
+            steps{
+                script{
+                    def result = sh(script: 'helm registry login ${REGISTRY_SERVER_ENV_VAR} -u ${QUAY_CREDS_USR} -p ${QUAY_CREDS_PSW}', returnStdout: true).trim()
+                    echo "Response from connecting to helm OCI registry : \n ${result}"
+                }
+            }
+        }
+        stage("push chart to registry"){
+            environment{
+                HELM_EXPERIMENTAL_OCI = 1
+            }
+            steps{
+                dir("firstapp") {
+                    script{
+                        def result = sh(script: "helm push ${packedChartFileFinal} ${registryServerUrl}", returnStdout: true).trim()
+                        echo "Response from pushing to helm OCI registry : \n ${result}"
+                    }
+                }
+            }
+        }
+        // "openshift" global variable from "OpenShift Jenkins Pipeline (DSL) Plug-in"
+        stage("deploy chart from registry on OCP"){
+            steps{
+                script{
+                     openshift.withCluster() { // Use "default" cluster or fallback to OpenShift cluster detection
+                        sh "helm install rel1 firstapp --repo ${registryServerUrl} --wait"
+                     }
+                    // openshift.withCluster("", "") { // Use explicit data
+                    //     sh "helm install rel1 firstapp --repo ${registryServerUrl} -n ${env.OCP_PROJECT} --wait"
+                    // }
+                }
+            }
+        }
+        stage("test deployment on OCP"){
+            steps{
+                script{
+                    // if want to run tests from different ns need to set that ns inside the test yamls; requires some changes all around
+//                     def result = sh(script: "oc new-project ue-firstapp-test-${env.BUILD_NUMBER}", returnStdout: true).trim()
+//                     echo "Response from creating new test project : \n ${result}"
+                    result = sh(script: "helm test rel1", returnStdout: true).trim()
+                    echo "Response from testing release : \n ${result}"
+                }
+            }
+        }
+    }
+    post {
+        always {
+            // from "Workspace Cleanup" plugin - !!!! requires update of Jenkins to be able to update plugin dependencies - do later
+            // if we are running the build on another agent in OCP, that will be destroyed after pipeline finishes anyway, so no need to clean up on that one
+//             cleanWs(cleanWhenNotBuilt: false,
+//                     deleteDirs: true,
+//                     disableDeferredWipeout: true,
+//                     notFailBuild: true)
+           script{
+               try{
+                   sh "helm uninstall rel1"
+               }
+               catch (Exception e){
+                   // might not have been installed - do not want to fail on that
+                   echo e.toString()
+               }
+           }
+        }
+    }
+}
+def policiesTest(String chartName, String chartPackageName){
+    sh "helm template ${chartName} ${chartPackageName} -f values.yaml > fullManifestForPolicyTest.yaml"
+    def policyResult = sh(script: "conftest test fullManifestForPolicyTest.yaml --policy ../policy --all-namespaces", returnStdout: true).trim()
+    echo "Result of policy tests: \n ${policyResult}"
+}

@@ -1,0 +1,47 @@
+#to be able to access (create (get if already exists) on install, delete on uninstall) application project scc bindings:
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: jenkins-get
+  namespace: ue-jenkins
+rules:
+  - verbs:
+      - get
+      - watch
+      - list
+      - delete
+      - create
+    apiGroups:
+      - rbac.authorization.k8s.io
+    resources:
+      - roles
+      - rolebindings
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: jenkins-get-binding
+  namespace: ue-jenkins
+subjects:
+  - kind: ServiceAccount
+    name: jenkins
+    namespace: ue-jenkins
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: jenkins-get
+---
+#to be able to create new test project jenkins needs:
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: jenkins-create-project-binding
+  namespace: ue-jenkins
+subjects:
+  - kind: ServiceAccount
+    name: jenkins
+    namespace: ue-jenkins
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: self-provisioner
