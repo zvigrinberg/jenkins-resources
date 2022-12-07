@@ -128,11 +128,27 @@ node {
                   }
           }
       }
-      //TBD
-      stage('Static Code Analysis with SonarQube')
-            {
+      node('jenkins-agent-mvn')
+      {
+          // In order to deploy a sonarqube instance, kindly follow 1 and 2 sections at :
+          // https://github.com/zvigrinberg/Sonarqube-in-pipelines-demo/tree/main/spring-boot-jenkins
+          
+          // in order to configure Sonarqube for jenkins, kindly follow this instructions : 
+          // https://github.com/zvigrinberg/Sonarqube-in-pipelines-demo/blob/main/spring-boot-jenkins/Jenkins-README.md
+          stage('Static Code Analysis with SonarQube')
+                {
+                    unstash 'gitRepo'
+                    withSonarQubeEnv('sonar-qube') {
 
-            }
+                            // String sonar = ${env.SONAR_HOST_URL}
+                            // String ip = sonar.substring(sonar.lastIndexOf("/") + 1, sonar.indexOf(":"))
+                            // sh 'echo ${ip}'
+                            sh 'mvn clean package sonar:sonar'
+                            echo "Waiting 10 seconds before start waiting for quality gate"
+                            sleep 10
+                        }
+                }
+      }
       //TBD
       stage('Security Image scan With StackRox')
             {
